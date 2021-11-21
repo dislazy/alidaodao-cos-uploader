@@ -7,7 +7,7 @@ const CdnClient = tencentcloud.cdn.v20180606.Client;
 var QcloudSDK = function() {
     this.secretKey = '';
     this.secretId = '';
-    this.cdnUrl ='';
+    this.cdnUrl =[];
 }
 QcloudSDK.prototype.config = function(userConfig) {
     checkUserConfig(userConfig)
@@ -22,7 +22,7 @@ function checkUserConfig(userConfig) {
     if(!_.isPlainObject(userConfig)
         || !_.isString(userConfig['secretKey'])
         || !_.isString(userConfig['secretId'])
-        || !_.isString(userConfig['cdnUrl'])
+        || !_.size(userConfig['cdnUrl'] <= 0)
     ) {
         throw new Error('::config function should be called required an object param which contains secretKey[String] and secretId[String]')
     }

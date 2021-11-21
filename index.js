@@ -1,4 +1,5 @@
 require("./uploader")
-module.exports.sayHello = function(){
-    return "Hello World!";
+
+module.exports.upload = function(){
+
 }
