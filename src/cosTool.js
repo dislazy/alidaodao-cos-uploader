@@ -32,19 +32,17 @@ QCosSDK.prototype.putObjectToCos = function (userConfig) {
 /** *上传文件启动 *@param {string} dirName 将要上传的文件名 */
 async function putObjectToCosAndFlushCdnCache(targetPath) {
     try {
-        //删除COS中bucket目录中的所以文件
-        await setTimeout(function () {
-            deleteTargetCosObjects(targetPath);
-        }, 3000);
+        //删除COS中bucket目录中的所有文件
+        deleteTargetCosObjects(targetPath);
         //将源文件夹中的文件全部上传到COS中
-        await setTimeout(function () {
+        setTimeout(function () {
             putSrcObjectToCos(config.publicPath, targetPath);
         }, 5000);
         //如果需要刷新cdn目录，及时将CDN目录给刷新一下
         if (config.enableCdn) {
-            await setTimeout(function () {
+            setTimeout(function () {
                 flushCdnPathCache();
-            }, 8000);
+            }, 10000);
         }
     } catch (err) {
         console.log('[QCosSDK][putObjectToCosAndFlushCdnCache] put object fail ,error: ', err);
@@ -76,7 +74,7 @@ async function deleteTargetCosObjects(dir) {
                     keys.push({Key: obj.Key});
                 });
                 //删除文件列表
-                deleteMultipleObject(keys);
+                deleteMultipleObject(dir,keys);
             }
         }
     );
@@ -85,15 +83,28 @@ async function deleteTargetCosObjects(dir) {
 /**
  * 批量删除文件列表
  *
+ * @param dir
  * @param keys
  * @returns {Promise<void>}
  */
-async function deleteMultipleObject(keys) {
+async function deleteMultipleObject(dir,keys) {
+    let deleteKeys = [];
+    if (dir) {
+        keys.forEach(function (obj) {
+            if (obj.key.indexOf(dir) === 0) {
+                deleteKeys.push(obj);
+            }
+        })
+    }
+    if (deleteKeys.length === 0) {
+        console.log('[QCosSDK][deleteMultipleObject] this path: ' + dir + ' not files need to delete');
+        return;
+    }
     try {
         await client.deleteMultipleObject({
             Bucket: config.bucket,
             Region: config.region,
-            Objects: keys,
+            Objects: deleteKeys,
         });
         console.log('[QCosSDK][deleteMultipleObject] delete files in bucket : ' + config.bucket + ' success');
     } catch (e) {
