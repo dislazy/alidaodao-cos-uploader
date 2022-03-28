@@ -20,6 +20,6 @@
     "lodash": "^4.17.21",
     "request": "^2.88.2",
     "tencentcloud-sdk-nodejs": "^4.0.315",
-    "utility": "^1.17.3"
+    "utility": "^1.17.0"
   }
 }
