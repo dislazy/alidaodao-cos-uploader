@@ -1,6 +1,6 @@
 {
   "name": "alidaodao-cos-uploader",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "upload file to tencent cos for all node project",
   "main": "index.js",
   "scripts": {
@@ -15,7 +15,7 @@
   "author": "dislazy",
   "license": "MIT",
   "dependencies": {
-    "chalk": "^5.0.1",
+    "chalk": "^4.1.0",
     "cos-nodejs-sdk-v5": "^2.9.16",
     "lodash": "^4.17.21",
     "request": "^2.88.2",

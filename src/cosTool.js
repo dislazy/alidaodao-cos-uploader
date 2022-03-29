@@ -3,7 +3,6 @@ const fs = require("fs");
 const path = require('path');
 const Cos = require('cos-nodejs-sdk-v5');
 const util = require('./util.js');
-const chalk = require('chalk');
 const qCdnSDK = require('./cdnTool');
 
 let config = {}
@@ -21,6 +20,7 @@ QCosSDK.prototype.putObjectToCos = function (userConfig) {
     config.targetPath = userConfig.targetPath || '';
     config.enableCdn = userConfig.enableCdn || false;
     config.publicPath = path.join(userConfig.distPath);
+    config.deleteObject = userConfig.deleteObject || false;
     //初始化COS客户端
     client = new Cos({
         SecretId: config.secretId,
@@ -32,18 +32,19 @@ QCosSDK.prototype.putObjectToCos = function (userConfig) {
 /** *上传文件启动 *@param {string} dirName 将要上传的文件名 */
 async function putObjectToCosAndFlushCdnCache(targetPath) {
     try {
-        //删除COS中bucket目录中的所有文件
-        deleteTargetCosObjects(targetPath);
+        //删除COS中bucket目录中的所有文件,判断是否删除桶内的内容
+        await deleteTargetCosObjects();
+
         //将源文件夹中的文件全部上传到COS中
         setTimeout(function () {
             putSrcObjectToCos(config.publicPath, targetPath);
         }, 5000);
+
         //如果需要刷新cdn目录，及时将CDN目录给刷新一下
-        if (config.enableCdn) {
-            setTimeout(function () {
-                flushCdnPathCache();
-            }, 10000);
-        }
+        setTimeout(function () {
+            flushCdnPathCache();
+        }, 20000);
+
     } catch (err) {
         console.log('[QCosSDK][putObjectToCosAndFlushCdnCache] put object fail ,error: ', err);
     }
@@ -56,28 +57,32 @@ async function putObjectToCosAndFlushCdnCache(targetPath) {
  * @param dir
  * @returns {Promise<void>}
  */
-async function deleteTargetCosObjects(dir) {
+async function deleteTargetCosObjects() {
+    //不需要删除文件
+    if (!config.deleteObject) {
+        console.log('[QCosSDK][deleteTargetCosObjects]need not to delete objects');
+        return ;
+    }
+
     //获取bucket中的文件
-    await client.getBucket(
-        {
-            Bucket: config.bucket,
-            Region: config.region,
-        }, function (err, result) {
-            if (err) {
-                console.log('[QCosSDK][deleteTargetCosObjects]get cos bucket object list fail,err: ', err);
-                return;
-            }
-            //解读文件
-            if (result.Contents) {
-                let keys = [];
-                result.Contents.forEach(function (obj) {
-                    keys.push({Key: obj.Key});
-                });
-                //删除文件列表
-                deleteMultipleObject(dir,keys);
-            }
+    await client.getBucket({
+        Bucket: config.bucket, Region: config.region,
+    }, function (err, result) {
+        if (err) {
+            console.log('[QCosSDK][deleteTargetCosObjects]get cos bucket object list fail,err: ', err);
+            return ;
         }
-    );
+        //解读文件
+        if (result.Contents) {
+            let keys = [];
+            result.Contents.forEach(function (obj) {
+                keys.push({Key: obj.Key});
+            });
+            //删除文件列表
+            deleteMultipleObject(keys);
+        }
+    });
+    return ;
 }
 
 /**
@@ -87,24 +92,12 @@ async function deleteTargetCosObjects(dir) {
  * @param keys
  * @returns {Promise<void>}
  */
-async function deleteMultipleObject(dir,keys) {
-    let deleteKeys = [];
-    if (dir) {
-        keys.forEach(function (obj) {
-            if (obj.key.indexOf(dir) === 0) {
-                deleteKeys.push(obj);
-            }
-        })
-    }
-    if (deleteKeys.length === 0) {
-        console.log('[QCosSDK][deleteMultipleObject] this path: ' + dir + ' not files need to delete');
-        return;
-    }
+async function deleteMultipleObject(keys) {
     try {
         await client.deleteMultipleObject({
             Bucket: config.bucket,
             Region: config.region,
-            Objects: deleteKeys,
+            Objects: keys,
         });
         console.log('[QCosSDK][deleteMultipleObject] delete files in bucket : ' + config.bucket + ' success');
     } catch (e) {
@@ -118,7 +111,7 @@ async function deleteMultipleObject(dir,keys) {
  * @param src
  * @param dist
  */
-function putSrcObjectToCos(src, dist) {
+async function putSrcObjectToCos(src, dist) {
     //获取所有的文件列表
     let docs = fs.readdirSync(src);
     //循环进行文件上传
@@ -162,6 +155,11 @@ async function putSingleObjectToCos(src, dist) {
  * @returns {Promise<void>}
  */
 async function flushCdnPathCache() {
+    if (!config.enableCdn) {
+        console.error("[QCosSDK][flushCdnCache]cdn need not flush");
+        return ;
+    }
+
     let cdnConfig = {
         secretId: config.secretId,
         secretKey: config.secretKey,
